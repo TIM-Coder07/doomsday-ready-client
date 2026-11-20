@@ -5,16 +5,21 @@ export type Movie = {
   runtime: number;
   prerequisites: string[];
   watched: boolean;
+  createdAt: string;
+  updatedAt: string;
 };
 
-export type MovieInput = {
+export type NewMovie = {
   title: string;
   releaseYear: number;
   runtime: number;
   prerequisites?: string[];
+  watched?: boolean;
 };
 
-export type RewatchPlan = {
+export type MovieUpdate = Partial<NewMovie>;
+
+export type RewatchOrder = {
   target: { id: string; title: string };
   order: Movie[];
   watchedCount: number;
@@ -26,9 +31,11 @@ export type Cinema = {
   _id: string;
   name: string;
   bundleSizes: number[];
+  createdAt: string;
+  updatedAt: string;
 };
 
-export type CinemaInput = {
+export type NewCinema = {
   name: string;
   bundleSizes: number[];
 };
@@ -39,4 +46,9 @@ export type BookingQuote = {
   possible: boolean;
   totalBundles: number;
   bundles: { size: number; count: number }[];
+};
+
+// Shape of every error the API sends back
+export type ApiErrorBody = {
+  error: { code: string; message: string };
 };

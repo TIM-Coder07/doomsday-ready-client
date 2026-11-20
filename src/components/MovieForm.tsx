@@ -1,122 +1,125 @@
 "use client";
 
 import { useState } from "react";
-import { useForm } from "react-hook-form";
+import { Controller, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { createMovie } from "@/lib/api/movies";
 import { getErrorMessage } from "@/lib/api/axios";
 import type { Movie } from "@/types";
+import PrerequisitePicker from "./PrerequisitePicker";
 
-const schema = z.object({
+// Same rules as the API, so most mistakes are caught before sending
+const movieFormSchema = z.object({
   title: z.string().trim().min(1, "Title is required"),
   releaseYear: z
-    .number({ message: "Release year is required" })
+    .number({ error: "Enter a release year" })
     .int("Use a whole number")
     .min(1900, "Year must be 1900 or later")
     .max(2100, "Year must be 2100 or earlier"),
   runtime: z
-    .number({ message: "Runtime is required" })
+    .number({ error: "Enter a runtime" })
     .int("Use a whole number")
-    .min(1, "Runtime must be at least 1 minute")
-    .max(300, "Runtime must be 300 minutes or less"),
+    .min(1, "Runtime must be 1 to 300 minutes")
+    .max(300, "Runtime must be 1 to 300 minutes"),
+  prerequisites: z.array(z.string()),
+  watched: z.boolean(),
 });
 
-type FormValues = z.infer<typeof schema>;
+type MovieFormValues = z.infer<typeof movieFormSchema>;
+
+// NaN shows as an empty number box, so both number fields clear after each add
+const emptyForm: MovieFormValues = { title: "", releaseYear: NaN, runtime: NaN, prerequisites: [], watched: false };
 
 type Props = {
   movies: Movie[];
-  onCreated: () => void;
+  onCreated: (movie: Movie) => void;
 };
 
 const inputClass =
-  "mt-1 w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm focus:border-zinc-900 focus:outline-none";
+  "w-full rounded-md border border-white/15 bg-black/40 px-3 py-2 text-sm outline-none focus:border-red-500";
 
 export default function MovieForm({ movies, onCreated }: Props) {
-  const [prerequisites, setPrerequisites] = useState<string[]>([]);
-  const [serverError, setServerError] = useState("");
+  const [serverError, setServerError] = useState<string | null>(null);
 
   const {
     register,
+    control,
     handleSubmit,
     reset,
     formState: { errors, isSubmitting },
-  } = useForm<FormValues>({ resolver: zodResolver(schema) });
+  } = useForm<MovieFormValues>({
+    resolver: zodResolver(movieFormSchema),
+    defaultValues: emptyForm,
+  });
 
-  function togglePrerequisite(id: string) {
-    setPrerequisites((current) =>
-      current.includes(id) ? current.filter((item) => item !== id) : [...current, id]
-    );
-  }
-
-  async function onSubmit(values: FormValues) {
-    setServerError("");
+  async function onSubmit(values: MovieFormValues) {
+    setServerError(null);
     try {
-      await createMovie({ ...values, prerequisites });
-      reset();
-      setPrerequisites([]);
-      onCreated();
+      const movie = await createMovie(values);
+      onCreated(movie);
+      reset(emptyForm);
     } catch (error) {
       setServerError(getErrorMessage(error));
     }
   }
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="rounded-lg border border-zinc-200 bg-white p-5">
+    <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 rounded-xl border border-white/10 bg-white/5 p-5" noValidate>
       <h2 className="text-lg font-semibold">Add a movie</h2>
 
-      <div className="mt-4 grid gap-4 sm:grid-cols-3">
-        <label className="block text-sm font-medium sm:col-span-3">
-          Title
-          <input type="text" className={inputClass} {...register("title")} />
-          {errors.title && <span className="mt-1 block text-xs text-red-600">{errors.title.message}</span>}
-        </label>
-
-        <label className="block text-sm font-medium">
-          Release year
-          <input type="number" className={inputClass} {...register("releaseYear", { valueAsNumber: true })} />
-          {errors.releaseYear && (
-            <span className="mt-1 block text-xs text-red-600">{errors.releaseYear.message}</span>
-          )}
-        </label>
-
-        <label className="block text-sm font-medium">
-          Runtime (minutes)
-          <input type="number" className={inputClass} {...register("runtime", { valueAsNumber: true })} />
-          {errors.runtime && <span className="mt-1 block text-xs text-red-600">{errors.runtime.message}</span>}
-        </label>
+      <div className="grid gap-4 sm:grid-cols-[2fr_1fr_1fr]">
+        <div>
+          <label htmlFor="title" className="mb-1 block text-sm text-zinc-300">Title</label>
+          <input id="title" className={inputClass} placeholder="Iron Man" {...register("title")} />
+          {errors.title && <p className="mt-1 text-xs text-red-400">{errors.title.message}</p>}
+        </div>
+        <div>
+          <label htmlFor="releaseYear" className="mb-1 block text-sm text-zinc-300">Release year</label>
+          <input
+            id="releaseYear"
+            type="number"
+            className={inputClass}
+            placeholder="2008"
+            {...register("releaseYear", { valueAsNumber: true })}
+          />
+          {errors.releaseYear && <p className="mt-1 text-xs text-red-400">{errors.releaseYear.message}</p>}
+        </div>
+        <div>
+          <label htmlFor="runtime" className="mb-1 block text-sm text-zinc-300">Runtime (min)</label>
+          <input
+            id="runtime"
+            type="number"
+            className={inputClass}
+            placeholder="126"
+            {...register("runtime", { valueAsNumber: true })}
+          />
+          {errors.runtime && <p className="mt-1 text-xs text-red-400">{errors.runtime.message}</p>}
+        </div>
       </div>
 
-      <fieldset className="mt-4">
-        <legend className="text-sm font-medium">Watch these first (optional)</legend>
-        {movies.length === 0 ? (
-          <p className="mt-1 text-sm text-zinc-500">No other movies yet.</p>
-        ) : (
-          <div className="mt-2 grid gap-2 sm:grid-cols-2">
-            {movies.map((movie) => (
-              <label key={movie._id} className="flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  checked={prerequisites.includes(movie._id)}
-                  onChange={() => togglePrerequisite(movie._id)}
-                />
-                {movie.title}
-              </label>
-            ))}
-          </div>
-        )}
-      </fieldset>
+      <div>
+        <p className="mb-1 text-sm text-zinc-300">Watch these first (optional)</p>
+        <Controller
+          control={control}
+          name="prerequisites"
+          render={({ field }) => (
+            <PrerequisitePicker movies={movies} selected={field.value} onChange={field.onChange} />
+          )}
+        />
+      </div>
 
-      {serverError && (
-        <p role="alert" className="mt-4 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
-          {serverError}
-        </p>
-      )}
+      <label className="flex items-center gap-2 text-sm">
+        <input type="checkbox" className="accent-red-600" {...register("watched")} />
+        Already watched
+      </label>
+
+      {serverError && <p className="rounded-md bg-red-950/60 px-3 py-2 text-sm text-red-300">{serverError}</p>}
 
       <button
         type="submit"
         disabled={isSubmitting}
-        className="mt-4 rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-700 disabled:opacity-50"
+        className="rounded-md bg-red-600 px-4 py-2 text-sm font-semibold hover:bg-red-500 disabled:opacity-50"
       >
         {isSubmitting ? "Adding..." : "Add movie"}
       </button>

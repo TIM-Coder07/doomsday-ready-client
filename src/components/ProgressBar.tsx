@@ -8,22 +8,21 @@ export default function ProgressBar({ watched, total }: Props) {
 
   return (
     <div>
-      <div className="flex items-center justify-between text-sm font-medium">
-        <span>
+      <div className="mb-1 flex justify-between text-sm">
+        <span className="font-medium">
           {watched} of {total} watched
         </span>
-        <span>{percent}%</span>
+        <span className="text-zinc-400">{percent}%</span>
       </div>
-
       <div
+        className="h-3 w-full overflow-hidden rounded-full bg-white/10"
         role="progressbar"
-        aria-label="Rewatch progress"
         aria-valuemin={0}
         aria-valuemax={total}
         aria-valuenow={watched}
-        className="mt-2 h-3 w-full overflow-hidden rounded-full bg-zinc-200"
+        aria-label={`${watched} of ${total} watched`}
       >
-        <div className="h-full rounded-full bg-emerald-600 transition-all" style={{ width: `${percent}%` }} />
+        <div className="h-full rounded-full bg-red-600 transition-all" style={{ width: `${percent}%` }} />
       </div>
     </div>
   );
